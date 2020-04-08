@@ -28,9 +28,16 @@
 #include "src/core/lib/gprpp/host_port.h"
 #include "src/core/lib/iomgr/iomgr.h"
 #include "src/core/lib/security/credentials/credentials.h"
-#include "test/core/end2end/data/ssl_test_data.h"
 #include "test/core/util/port.h"
 #include "test/core/util/test_config.h"
+#include "src/core/lib/iomgr/load_file.h"
+
+#define CA_CERT_PATH "src/core/tsi/test_creds/ca.pem"
+#define CLIENT_CERT_PATH "src/core/tsi/test_creds/client.pem"
+#define CLIENT_KEY_PATH "src/core/tsi/test_creds/client.key"
+#define SERVER_CERT_PATH "src/core/tsi/test_creds/server1.pem"
+#define SERVER_KEY_PATH "src/core/tsi/test_creds/server1.key"
+
 
 static const char oauth2_md[] = "Bearer aaslkfjs424535asdf";
 static const char* client_identity_property_name = "smurf_name";
@@ -139,6 +146,11 @@ void chttp2_tear_down_secure_fullstack(grpc_end2end_test_fixture* f) {
 static void chttp2_init_client_simple_ssl_with_oauth2_secure_fullstack(
     grpc_end2end_test_fixture* f, grpc_channel_args* client_args) {
   grpc_core::ExecCtx exec_ctx;
+  grpc_slice ca_slice;
+  GPR_ASSERT(GRPC_LOG_IF_ERROR("load_file",
+                               grpc_load_file(CA_CERT_PATH, 1, &ca_slice)));
+  const char* test_root_cert =
+      reinterpret_cast<const char*> GRPC_SLICE_START_PTR(ca_slice);
   grpc_channel_credentials* ssl_creds =
       grpc_ssl_credentials_create(test_root_cert, nullptr, nullptr, nullptr);
   grpc_call_credentials* oauth2_creds = grpc_md_only_test_credentials_create(
@@ -156,6 +168,7 @@ static void chttp2_init_client_simple_ssl_with_oauth2_secure_fullstack(
   grpc_channel_args_destroy(new_client_args);
   grpc_channel_credentials_release(ssl_creds);
   grpc_call_credentials_release(oauth2_creds);
+  grpc_slice_unref(ca_slice);
 }
 
 static int fail_server_auth_check(grpc_channel_args* server_args) {
